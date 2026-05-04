@@ -4,6 +4,7 @@ import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
 import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { format, startOfMonth, endOfMonth } from 'date-fns';
 import { Picker } from '@react-native-picker/picker';
@@ -13,6 +14,7 @@ if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental
 }
 
 export default function TransactionsScreen() {
+  const insets = useSafeAreaInsets();
   const [formType, setFormType] = useState<string | null>(null);
   const [transactions, setTransactions] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -268,7 +270,7 @@ export default function TransactionsScreen() {
     <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
 
       {/* Header */}
-      <View style={styles.header}>
+      <View style={[styles.header, { paddingTop: insets.top + 10 }]}>
         <View>
           <Text style={styles.title}>Transactions History</Text>
           <Text style={styles.subtitle}>Track and manage your spending habits</Text>
@@ -535,7 +537,7 @@ export default function TransactionsScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: 'hsl(0, 0%, 100%)' },
-  header: { paddingHorizontal: 24, paddingTop: 60, paddingBottom: 24 },
+  header: { paddingHorizontal: 24, paddingBottom: 24 },
   title: { fontSize: 26, fontWeight: '800', color: 'hsl(240, 10%, 3.9%)' },
   subtitle: { fontSize: 14, color: 'hsl(240, 3.8%, 46.1%)', marginTop: 4 },
 

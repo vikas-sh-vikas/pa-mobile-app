@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, LayoutAnimation, UIManager, Platform, ActivityIndicator } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../../context/AuthContext';
 
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
@@ -9,6 +10,7 @@ if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental
 }
 
 export default function ProfileScreen() {
+  const insets = useSafeAreaInsets();
   const { user, logout } = useAuth();
   const [editMode, setEditMode] = useState(false);
   const [userDetail, setUserDetail] = useState<any>(null);
@@ -54,100 +56,102 @@ export default function ProfileScreen() {
 
   return (
     <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
-      
-      <View style={styles.profileCard}>
-        {/* Profile Header Background */}
-        <View style={styles.coverBg}>
-          <View style={styles.avatarContainer}>
-            <View style={styles.avatarWrap}>
-              <Text style={styles.avatarText}>{user?.name?.[0]?.toUpperCase() ?? 'A'}</Text>
-            </View>
-            <TouchableOpacity style={styles.cameraBtn}>
-              <Ionicons name="camera" size={16} color="#fff" />
-            </TouchableOpacity>
-          </View>
-        </View>
-
-        {/* Content Area */}
-        <View style={styles.contentArea}>
-          <View style={styles.headerRow}>
-            <View style={styles.titleWrap}>
-              <Text style={styles.userName}>{user?.name || 'User Name'}</Text>
-              <Text style={styles.userHandle}>
-                <Ionicons name="at" size={14} color="hsl(240, 3.8%, 46.1%)" /> {user?.name?.toLowerCase().replace(' ', '') || 'username'}
-              </Text>
-            </View>
-
-            <View style={styles.actionBtnsWrap}>
-              {!editMode && (
-                <TouchableOpacity style={styles.editBtn} onPress={toggleEdit}>
-                  <Ionicons name="pencil" size={16} color="hsl(262.1, 83.3%, 57.8%)" />
-                  <Text style={styles.editBtnText}>Edit Profile</Text>
-                </TouchableOpacity>
-              )}
-              <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout}>
-                <Ionicons name="log-out-outline" size={16} color="#f43f5e" />
-                <Text style={styles.logoutBtnText}>Logout</Text>
+      {/* Header */}
+      <View style={[styles.header, { paddingTop: insets.top + 10 }]}>
+        <View style={styles.profileCard}>
+          {/* Profile Header Background */}
+          <View style={styles.coverBg}>
+            <View style={styles.avatarContainer}>
+              <View style={styles.avatarWrap}>
+                <Text style={styles.avatarText}>{user?.name?.[0]?.toUpperCase() ?? 'A'}</Text>
+              </View>
+              <TouchableOpacity style={styles.cameraBtn}>
+                <Ionicons name="camera" size={16} color="#fff" />
               </TouchableOpacity>
             </View>
           </View>
 
-          {!editMode ? (
-            <View style={styles.infoGrid}>
-              <View style={styles.infoCard}>
-                <Text style={styles.infoLabel}><Ionicons name="mail" size={12} /> EMAIL ADDRESS</Text>
-                <Text style={styles.infoValue}>{user?.email || 'Not set'}</Text>
-              </View>
-              <View style={styles.infoCard}>
-                <Text style={styles.infoLabel}><Ionicons name="person" size={12} /> FULL NAME</Text>
-                <Text style={styles.infoValue}>{user?.name || 'Not set'}</Text>
-              </View>
-            </View>
-          ) : (
-            <View style={styles.editForm}>
-              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-                <Text style={styles.formTitle}>Edit Profile Information</Text>
-                {isLoadingDetail && <ActivityIndicator size="small" color="hsl(262.1, 83.3%, 57.8%)" />}
-              </View>
-              
-              <View style={styles.inputWrap}>
-                <Text style={styles.inputLabel}>Full Name</Text>
-                <View style={styles.inputBox}>
-                  <Text style={styles.inputText}>{userDetail?.full_name || user?.name || 'Loading...'}</Text>
-                </View>
-              </View>
-              <View style={styles.inputWrap}>
-                <Text style={styles.inputLabel}>Email (Disabled)</Text>
-                <View style={[styles.inputBox, { backgroundColor: 'hsl(240, 4.8%, 95.9%)' }]}>
-                  <Text style={styles.inputText}>{userDetail?.email || user?.email}</Text>
-                </View>
-              </View>
-              <View style={styles.inputWrap}>
-                <Text style={styles.inputLabel}>Mobile Number</Text>
-                <View style={styles.inputBox}>
-                  <Text style={styles.inputText}>{userDetail?.mobileNo || 'Not set'}</Text>
-                </View>
-              </View>
-              <View style={styles.inputWrap}>
-                <Text style={styles.inputLabel}>Username</Text>
-                <View style={styles.inputBox}>
-                  <Text style={styles.inputText}>{userDetail?.user_name || user?.name?.toLowerCase().replace(' ', '')}</Text>
-                </View>
+          {/* Content Area */}
+          <View style={styles.contentArea}>
+            <View style={styles.headerRow}>
+              <View style={styles.titleWrap}>
+                <Text style={styles.userName}>{user?.name || 'User Name'}</Text>
+                <Text style={styles.userHandle}>
+                  <Ionicons name="at" size={14} color="hsl(240, 3.8%, 46.1%)" /> {user?.name?.toLowerCase().replace(' ', '') || 'username'}
+                </Text>
               </View>
 
-              <View style={styles.formActions}>
-                <TouchableOpacity style={styles.cancelBtn} onPress={toggleEdit}>
-                  <Ionicons name="close" size={18} color="hsl(240, 3.8%, 46.1%)" />
-                  <Text style={styles.cancelBtnText}>Cancel</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.saveBtn} onPress={toggleEdit}>
-                  <Ionicons name="save" size={18} color="#fff" />
-                  <Text style={styles.saveBtnText}>Save Changes</Text>
+              <View style={styles.actionBtnsWrap}>
+                {!editMode && (
+                  <TouchableOpacity style={styles.editBtn} onPress={toggleEdit}>
+                    <Ionicons name="pencil" size={16} color="hsl(262.1, 83.3%, 57.8%)" />
+                    <Text style={styles.editBtnText}>Edit Profile</Text>
+                  </TouchableOpacity>
+                )}
+                <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout}>
+                  <Ionicons name="log-out-outline" size={16} color="#f43f5e" />
+                  <Text style={styles.logoutBtnText}>Logout</Text>
                 </TouchableOpacity>
               </View>
             </View>
-          )}
 
+            {!editMode ? (
+              <View style={styles.infoGrid}>
+                <View style={styles.infoCard}>
+                  <Text style={styles.infoLabel}><Ionicons name="mail" size={12} /> EMAIL ADDRESS</Text>
+                  <Text style={styles.infoValue}>{user?.email || 'Not set'}</Text>
+                </View>
+                <View style={styles.infoCard}>
+                  <Text style={styles.infoLabel}><Ionicons name="person" size={12} /> FULL NAME</Text>
+                  <Text style={styles.infoValue}>{user?.name || 'Not set'}</Text>
+                </View>
+              </View>
+            ) : (
+              <View style={styles.editForm}>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+                  <Text style={styles.formTitle}>Edit Profile Information</Text>
+                  {isLoadingDetail && <ActivityIndicator size="small" color="hsl(262.1, 83.3%, 57.8%)" />}
+                </View>
+                
+                <View style={styles.inputWrap}>
+                  <Text style={styles.inputLabel}>Full Name</Text>
+                  <View style={styles.inputBox}>
+                    <Text style={styles.inputText}>{userDetail?.full_name || user?.name || 'Loading...'}</Text>
+                  </View>
+                </View>
+                <View style={styles.inputWrap}>
+                  <Text style={styles.inputLabel}>Email (Disabled)</Text>
+                  <View style={[styles.inputBox, { backgroundColor: 'hsl(240, 4.8%, 95.9%)' }]}>
+                    <Text style={styles.inputText}>{userDetail?.email || user?.email}</Text>
+                  </View>
+                </View>
+                <View style={styles.inputWrap}>
+                  <Text style={styles.inputLabel}>Mobile Number</Text>
+                  <View style={styles.inputBox}>
+                    <Text style={styles.inputText}>{userDetail?.mobileNo || 'Not set'}</Text>
+                  </View>
+                </View>
+                <View style={styles.inputWrap}>
+                  <Text style={styles.inputLabel}>Username</Text>
+                  <View style={styles.inputBox}>
+                    <Text style={styles.inputText}>{userDetail?.user_name || user?.name?.toLowerCase().replace(' ', '')}</Text>
+                  </View>
+                </View>
+
+                <View style={styles.formActions}>
+                  <TouchableOpacity style={styles.cancelBtn} onPress={toggleEdit}>
+                    <Ionicons name="close" size={18} color="hsl(240, 3.8%, 46.1%)" />
+                    <Text style={styles.cancelBtnText}>Cancel</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity style={styles.saveBtn} onPress={toggleEdit}>
+                    <Ionicons name="save" size={18} color="#fff" />
+                    <Text style={styles.saveBtnText}>Save Changes</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            )}
+
+          </View>
         </View>
       </View>
 
@@ -157,7 +161,8 @@ export default function ProfileScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: 'hsl(0, 0%, 100%)', paddingHorizontal: 24, paddingTop: 60 },
+  container: { flex: 1, backgroundColor: 'hsl(0, 0%, 100%)' },
+  header: { paddingHorizontal: 24, paddingBottom: 24 },
   
   profileCard: {
     backgroundColor: 'hsl(0, 0%, 100%)',

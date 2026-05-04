@@ -2,6 +2,7 @@ import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { View, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import DashboardScreen from '../screens/dashboard/DashboardScreen';
 import TransactionsScreen from '../screens/dashboard/TransactionsScreen';
 import AccountsScreen from '../screens/dashboard/AccountsScreen';
@@ -27,11 +28,19 @@ type TabIconName =
   | 'person-outline';
 
 export default function TabNavigator() {
+  const insets = useSafeAreaInsets();
+
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({
         headerShown: false,
-        tabBarStyle: styles.tabBar,
+        tabBarStyle: [
+          styles.tabBar,
+          {
+            height: 60 + insets.bottom,
+            paddingBottom: insets.bottom > 0 ? insets.bottom : 10,
+          },
+        ],
         tabBarActiveTintColor: 'hsl(262.1, 83.3%, 57.8%)',
         tabBarInactiveTintColor: 'hsl(240, 3.8%, 46.1%)',
         tabBarLabelStyle: styles.tabLabel,
@@ -67,8 +76,6 @@ const styles = StyleSheet.create({
     backgroundColor: 'hsl(0, 0%, 100%)',
     borderTopWidth: 1,
     borderTopColor: 'hsl(240, 5.9%, 90%)',
-    height: 70,
-    paddingBottom: 10,
     paddingTop: 8,
   },
   tabLabel: {

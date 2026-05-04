@@ -4,6 +4,7 @@ import {
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../../context/AuthContext';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { format, startOfMonth, endOfMonth, parseISO } from 'date-fns';
@@ -13,6 +14,7 @@ import { Dimensions } from 'react-native';
 const screenWidth = Dimensions.get('window').width;
 
 export default function DashboardScreen() {
+  const insets = useSafeAreaInsets();
   const { user } = useAuth();
   const [isLoading, setIsLoading] = useState(true);
   const [cashAmount, setCashAmount] = useState(0);
@@ -153,7 +155,7 @@ export default function DashboardScreen() {
   return (
     <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
       {/* Top bar */}
-      <View style={styles.topBar}>
+      <View style={[styles.topBar, { paddingTop: insets.top + 10 }]}>
         <View>
           <Text style={styles.greeting}>{greeting} 👋</Text>
           <Text style={styles.userName}>{user?.name}</Text>
@@ -304,7 +306,7 @@ export default function DashboardScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: 'hsl(0, 0%, 100%)' },
-  topBar: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 24, paddingTop: 60, paddingBottom: 20 },
+  topBar: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 24, paddingBottom: 20 },
   greeting: { fontSize: 14, color: 'hsl(240, 3.8%, 46.1%)' },
   userName: { fontSize: 22, fontWeight: '800', color: 'hsl(240, 10%, 3.9%)', marginTop: 2 },
   avatar: { width: 46, height: 46, borderRadius: 23, backgroundColor: 'hsl(262.1, 83.3%, 57.8%)', alignItems: 'center', justifyContent: 'center' },
