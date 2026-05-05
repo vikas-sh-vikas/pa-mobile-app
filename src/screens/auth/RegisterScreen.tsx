@@ -10,7 +10,9 @@ import {
   ScrollView,
   ActivityIndicator,
   Alert,
+  Image,
 } from 'react-native';
+import * as ImagePicker from 'expo-image-picker';
 import { useForm, Controller, SubmitHandler } from 'react-hook-form';
 import { yupResolver } from '@hookform/resolvers/yup';
 import * as yup from 'yup';
@@ -52,6 +54,7 @@ export default function RegisterScreen({ navigation }: Props) {
   const { register: registerUser } = useAuth();
   const [showPass, setShowPass] = useState(false);
   const [showConfirmPass, setShowConfirmPass] = useState(false);
+  const [profilePic, setProfilePic] = useState<ImagePicker.ImagePickerAsset | null>(null);
 
   const defaultValues: Inputs = {
     email: '',
@@ -70,10 +73,29 @@ export default function RegisterScreen({ navigation }: Props) {
     defaultValues,
     resolver: yupResolver(validationSchema),
   });
+  
+  const pickImage = async () => {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Permission Denied', 'Sorry, we need camera roll permissions to make this work!');
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.5,
+    });
+
+    if (!result.canceled) {
+      setProfilePic(result.assets[0]);
+    }
+  };
 
   const onSubmit: SubmitHandler<Inputs> = async (data) => {
     try {
-      await registerUser(data.fullName.trim(), data.email.trim(), data.password, data.mobileNo.trim());
+      await registerUser(data.fullName.trim(), data.email.trim(), data.password, data.mobileNo.trim(), profilePic);
       Alert.alert('Success', 'Registration successful', [
         { text: 'OK', onPress: () => navigation.navigate('Login') }
       ]);
@@ -221,13 +243,25 @@ export default function RegisterScreen({ navigation }: Props) {
             {errors.confirmPassword && <Text style={styles.errorText}>{errors.confirmPassword.message}</Text>}
           </View>
 
-          {/* File Picker Placeholder */}
+          {/* File Picker */}
           <View style={styles.inputGroup}>
               <Text style={styles.label}>Profile Picture</Text>
-              <TouchableOpacity style={styles.filePickerBtn}>
-                  <Ionicons name="cloud-upload-outline" size={32} color="#9ca3af" style={{ marginBottom: 10 }} />
-                  <Text style={styles.filePickerText}><Text style={{ fontWeight: 'bold' }}>Click to upload</Text> or drag and drop</Text>
-                  <Text style={styles.filePickerSub}>PNG, JPG, JPEG (Max 5MB)</Text>
+              <TouchableOpacity style={styles.filePickerBtn} onPress={pickImage}>
+                  {profilePic ? (
+                    <View style={styles.imagePreviewWrap}>
+                      <Image source={{ uri: profilePic.uri }} style={styles.previewImage} />
+                      <View style={styles.changeBadge}>
+                        <Ionicons name="camera" size={12} color="#fff" />
+                        <Text style={styles.changeText}>Change</Text>
+                      </View>
+                    </View>
+                  ) : (
+                    <>
+                      <Ionicons name="cloud-upload-outline" size={32} color="#9ca3af" style={{ marginBottom: 10 }} />
+                      <Text style={styles.filePickerText}><Text style={{ fontWeight: 'bold' }}>Click to upload</Text> or drag and drop</Text>
+                      <Text style={styles.filePickerSub}>PNG, JPG, JPEG (Max 5MB)</Text>
+                    </>
+                  )}
               </TouchableOpacity>
           </View>
 
@@ -249,7 +283,7 @@ export default function RegisterScreen({ navigation }: Props) {
               <ActivityIndicator color="#fff" style={{ marginRight: 8 }} />
             ) : null}
             <Text style={styles.primaryBtnText}>
-              {isSubmitting ? 'Loading....' : 'Log In'}
+              {isSubmitting ? 'Loading....' : 'Register'}
             </Text>
           </TouchableOpacity>
         </View>
@@ -320,6 +354,33 @@ const styles = StyleSheet.create({
       color: 'hsl(240, 3.8%, 46.1%)',
       fontSize: 12,
       marginTop: 4,
+  },
+  imagePreviewWrap: {
+    width: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
+    position: 'relative',
+  },
+  previewImage: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+  },
+  changeBadge: {
+    position: 'absolute',
+    bottom: -5,
+    backgroundColor: 'hsl(262.1, 83.3%, 57.8%)',
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 10,
+    gap: 4,
+  },
+  changeText: {
+    color: '#fff',
+    fontSize: 10,
+    fontWeight: 'bold',
   },
 
   linksRow: { flexDirection: 'row', justifyContent: 'flex-end', marginBottom: 16 },

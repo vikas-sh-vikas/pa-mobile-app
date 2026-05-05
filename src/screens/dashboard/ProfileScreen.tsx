@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, LayoutAnimation, UIManager, Platform, ActivityIndicator } from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, LayoutAnimation, UIManager, Platform, ActivityIndicator, Image } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../../context/AuthContext';
+import { api } from '../../api/apiHelper';
 
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
@@ -19,16 +19,7 @@ export default function ProfileScreen() {
   const fetchUserDetail = async () => {
     try {
       setIsLoadingDetail(true);
-      const token = await AsyncStorage.getItem('@ag_token');
-      const response = await fetch('https://backend-nodejs-pa.vercel.app/api/users/getUserDetail', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({}),
-      });
-      const json = await response.json();
+      const json = await api.post('/users/getUserDetail');
       if (json.success) {
         setUserDetail(json.data?.data || json.data);
       }
@@ -63,7 +54,14 @@ export default function ProfileScreen() {
           <View style={styles.coverBg}>
             <View style={styles.avatarContainer}>
               <View style={styles.avatarWrap}>
-                <Text style={styles.avatarText}>{user?.name?.[0]?.toUpperCase() ?? 'A'}</Text>
+                {user?.avatar ? (
+                  <Image 
+                    source={{ uri: user.avatar.startsWith('http') ? user.avatar : `https://backend-nodejs-pa.vercel.app${user.avatar}` }} 
+                    style={styles.avatarImage} 
+                  />
+                ) : (
+                  <Text style={styles.avatarText}>{user?.name?.[0]?.toUpperCase() ?? 'A'}</Text>
+                )}
               </View>
               <TouchableOpacity style={styles.cameraBtn}>
                 <Ionicons name="camera" size={16} color="#fff" />
@@ -201,6 +199,11 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.2,
     shadowRadius: 10,
     shadowOffset: { width: 0, height: 4 },
+    overflow: 'hidden',
+  },
+  avatarImage: {
+    width: '100%',
+    height: '100%',
   },
   avatarText: {
     fontSize: 40,

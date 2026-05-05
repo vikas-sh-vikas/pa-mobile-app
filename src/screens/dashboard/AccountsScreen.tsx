@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, ScrollView, TouchableOpacity, LayoutAnimation, 
 import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { api } from '../../api/apiHelper';
 
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
@@ -29,23 +29,11 @@ export default function AccountsScreen() {
   const fetchData = async () => {
     try {
       setIsLoading(true);
-      const token = await AsyncStorage.getItem('@ag_token');
-      const headers = {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`,
-      };
 
-      const [banksRes, cashRes] = await Promise.all([
-        fetch('https://backend-nodejs-pa.vercel.app/api/bank/getBanks', {
-          method: 'POST', headers, body: JSON.stringify({}),
-        }),
-        fetch('https://backend-nodejs-pa.vercel.app/api/transaction/getCashBankAmount', {
-          method: 'POST', headers, body: JSON.stringify({}),
-        })
+      const [banksJson, cashJson] = await Promise.all([
+        api.post('/bank/getBanks'),
+        api.post('/transaction/getCashBankAmount')
       ]);
-
-      const banksJson = await banksRes.json();
-      const cashJson = await cashRes.json();
 
       if (banksJson.success) {
         setBanks(banksJson.data || []);
@@ -92,31 +80,22 @@ export default function AccountsScreen() {
 
     setIsSubmitting(true);
     try {
-      const token = await AsyncStorage.getItem('@ag_token');
       const payload = {
         _id: editingBankId || "",
         bankName: bankName,
         currentBalance: currentBalance,
-        ifcsCode: ifscCode, // The API seems to accept ifcsCode
+        ifcsCode: ifscCode, 
         branch: branch,
         openingBalance: "0",
         address: address,
-        bank_name: bankName, // And also bank_name
+        bank_name: bankName,
         current_balance: currentBalance,
         opening_balance: "0",
         ifsc_code: ifscCode
       };
 
-      const res = await fetch('https://backend-nodejs-pa.vercel.app/api/bank/addEditBanks', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify(payload),
-      });
+      const json = await api.post('/bank/addEditBanks', payload);
 
-      const json = await res.json();
       if (json.success) {
         Alert.alert('Success', json.message || 'Bank saved successfully');
         toggleForm('');
@@ -143,16 +122,7 @@ export default function AccountsScreen() {
           onPress: async () => {
             try {
               setIsSubmitting(true);
-              const token = await AsyncStorage.getItem('@ag_token');
-              const response = await fetch('https://backend-nodejs-pa.vercel.app/api/bank/deleteBank', {
-                method: 'POST',
-                headers: {
-                  'Content-Type': 'application/json',
-                  Authorization: `Bearer ${token}`,
-                },
-                body: JSON.stringify({ _id: id }),
-              });
-              const json = await response.json();
+              const json = await api.post('/bank/deleteBank', { _id: id });
               if (json.success) {
                 Alert.alert('Success', 'Bank deleted');
                 fetchData();

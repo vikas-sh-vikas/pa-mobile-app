@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { apiCall } from '../api/apiHelper';
 
 export interface User {
   id: string;
@@ -12,7 +13,7 @@ interface AuthContextType {
   user: User | null;
   isLoading: boolean;
   login: (email: string, password: string) => Promise<void>;
-  register: (name: string, email: string, password: string, mobileNo: string) => Promise<void>;
+  register: (name: string, email: string, password: string, mobileNo: string, profilePic?: any) => Promise<void>;
   logout: () => Promise<void>;
 }
 
@@ -37,15 +38,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (!email || !password) throw new Error('Please fill all fields');
 
     try {
-      const response = await fetch('https://backend-nodejs-pa.vercel.app/api/users/login', {
+      const json = await apiCall('/users/login', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password, provider: 'credentials' }),
+        body: { email, password, provider: 'credentials' },
       });
 
-      const json = await response.json();
-
-      if (!response.ok || !json.success) {
+      if (!json.success) {
         throw new Error(json.message || 'Login failed');
       }
 
@@ -55,7 +53,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         id: apiUser._id,
         name: apiUser.full_name || apiUser.user_name,
         email: apiUser.email,
-        avatar: apiUser.profile_picture,
+        avatar: apiUser.profile_picture || apiUser.profilepic,
       };
 
       await AsyncStorage.multiSet([
@@ -68,35 +66,41 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const register = async (name: string, email: string, password: string, mobileNo: string) => {
+  const register = async (name: string, email: string, password: string, mobileNo: string, profilePic?: any) => {
     if (!name || !email || !password || !mobileNo) throw new Error('Please fill all fields');
 
     try {
       const formdata = new FormData();
-      formdata.append("user_name", email); // Using email as user_name based on typical patterns if user_name is required
+      formdata.append("user_name", email);
       formdata.append("email", email);
       formdata.append("password", password);
       formdata.append("full_name", name);
       formdata.append("mobileNo", mobileNo);
-      // profilepic is optional, omitted for now unless ImagePicker is integrated
-
-      const requestOptions = {
-        method: "POST",
-        headers: {
-          'Accept': 'application/json',
-          // Note: FormData boundaries are automatically set by fetch, do not set Content-Type manually
-        },
-        body: formdata,
-      };
-
-      const response = await fetch("https://backend-nodejs-pa.vercel.app/api/users/register", requestOptions);
-      const json = await response.json();
-      console.log("json",json);
-      if (!response.ok || !json.success) {
-        throw new Error(json.message || 'Registration failed');
+      
+      if (profilePic) {
+        // profilePic is from expo-image-picker
+        const filename = profilePic.uri.split('/').pop();
+        const match = /\.(\w+)$/.exec(filename || '');
+        const type = match ? `image/${match[1]}` : `image`;
+        
+        formdata.append('profilepic', {
+          uri: profilePic.uri,
+          name: filename,
+          type: type
+        } as any);
       }
 
-      // We do not auto-login here, Registration just succeeds and we return
+      console.log("formdata", formdata);
+
+      const json = await apiCall('/users/register', {
+        method: 'POST',
+        body: formdata,
+        isFormData: true,
+      });
+      console.log("Registerjason",json);
+      if (!json.success) {
+        throw new Error(json.errors[0].message || 'Registration failed');
+      }
     } catch (error: any) {
       throw new Error(error.message || 'An error occurred during registration');
     }

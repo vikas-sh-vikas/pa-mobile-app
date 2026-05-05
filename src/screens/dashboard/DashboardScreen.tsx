@@ -1,15 +1,15 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import {
-  View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator
+  View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Image
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../../context/AuthContext';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { format, startOfMonth, endOfMonth, parseISO } from 'date-fns';
 import { LineChart, PieChart } from 'react-native-chart-kit';
 import { Dimensions } from 'react-native';
+import { api } from '../../api/apiHelper';
 
 const screenWidth = Dimensions.get('window').width;
 
@@ -28,37 +28,16 @@ export default function DashboardScreen() {
   const fetchData = async () => {
     try {
       setIsLoading(true);
-      const token = await AsyncStorage.getItem('@ag_token');
-      const headers = {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`,
-      };
 
       const fromDateUtc = startOfMonth(new Date()).toISOString();
       const toDateUtc = endOfMonth(new Date()).toISOString();
 
-      const [cashBankRes, recentRes, monthRes] = await Promise.all([
-        fetch('https://backend-nodejs-pa.vercel.app/api/transaction/getCashBankAmount', {
-          method: 'POST',
-          headers,
-          body: JSON.stringify({}),
-        }),
-        fetch('https://backend-nodejs-pa.vercel.app/api/transaction/getRecentTransaction', {
-          method: 'POST',
-          headers,
-          body: JSON.stringify({   count: 5 }),
-        }),
-        fetch('https://backend-nodejs-pa.vercel.app/api/transaction/getTransaction', {
-          method: 'POST',
-          headers,
-          body: JSON.stringify({  fromDate: fromDateUtc, toDate: toDateUtc  }),
-        })
+      const [cashBankJson, recentJson, monthJson] = await Promise.all([
+        api.post('/transaction/getCashBankAmount'),
+        api.post('/transaction/getRecentTransaction', { count: 5 }),
+        api.post('/transaction/getTransaction', { fromDate: fromDateUtc, toDate: toDateUtc })
       ]);
-
-      const cashBankJson = await cashBankRes.json();
-      const recentJson = await recentRes.json();
-      const monthJson = await monthRes.json();
-
+      
       if (cashBankJson.success) {
         setCashAmount(cashBankJson.data?.cashAmount || 0);
         setBankAmount(cashBankJson.data?.bankAmount || 0);
@@ -161,7 +140,14 @@ export default function DashboardScreen() {
           <Text style={styles.userName}>{user?.name}</Text>
         </View>
         <View style={styles.avatar}>
-          <Text style={styles.avatarText}>{user?.name?.[0]?.toUpperCase() ?? 'A'}</Text>
+          {user?.avatar ? (
+            <Image 
+              source={{ uri: user.avatar.startsWith('http') ? user.avatar : `https://backend-nodejs-pa.vercel.app${user.avatar}` }} 
+              style={styles.avatarImage} 
+            />
+          ) : (
+            <Text style={styles.avatarText}>{user?.name?.[0]?.toUpperCase() ?? 'A'}</Text>
+          )}
         </View>
       </View>
 
@@ -309,7 +295,8 @@ const styles = StyleSheet.create({
   topBar: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 24, paddingBottom: 20 },
   greeting: { fontSize: 14, color: 'hsl(240, 3.8%, 46.1%)' },
   userName: { fontSize: 22, fontWeight: '800', color: 'hsl(240, 10%, 3.9%)', marginTop: 2 },
-  avatar: { width: 46, height: 46, borderRadius: 23, backgroundColor: 'hsl(262.1, 83.3%, 57.8%)', alignItems: 'center', justifyContent: 'center' },
+  avatar: { width: 46, height: 46, borderRadius: 23, backgroundColor: 'hsl(262.1, 83.3%, 57.8%)', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
+  avatarImage: { width: '100%', height: '100%' },
   avatarText: { color: 'hsl(210, 20%, 98%)', fontSize: 18, fontWeight: '700' },
   
   section: { paddingHorizontal: 24, marginBottom: 24 },

@@ -8,6 +8,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { format, startOfMonth, endOfMonth } from 'date-fns';
 import { Picker } from '@react-native-picker/picker';
+import { api } from '../../api/apiHelper';
 
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
@@ -35,35 +36,20 @@ export default function TransactionsScreen() {
   const [bankId, setBankId] = useState('');
   const [typeId, setTypeId] = useState('');
   const [toBankId, setToBankId] = useState('');
+  const [editingTxId, setEditingTxId] = useState<string | null>(null);
+  const [transactionDate, setTransactionDate] = useState(new Date().toISOString());
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const fetchData = async () => {
     try {
       setIsLoading(true);
-      const token = await AsyncStorage.getItem('@ag_token');
       const fromDateUtc = startOfMonth(selectedDate).toISOString();
       const toDateUtc = endOfMonth(selectedDate).toISOString();
 
-      const headers = {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`,
-      };
-
-      const [txRes, dashRes] = await Promise.all([
-        fetch('https://backend-nodejs-pa.vercel.app/api/transaction/getTransaction', {
-          method: 'POST',
-          headers,
-          body: JSON.stringify({ fromDate: fromDateUtc, toDate: toDateUtc }),
-        }),
-        fetch('https://backend-nodejs-pa.vercel.app/api/users/getUserDashDetail', {
-          method: 'POST',
-          headers,
-          body: JSON.stringify({}),
-        })
+      const [txJson, dashJson] = await Promise.all([
+        api.post('/transaction/getTransaction', { fromDate: fromDateUtc, toDate: toDateUtc }),
+        api.post('/users/getUserDashDetail')
       ]);
-
-      const txJson = await txRes.json();
-      const dashJson = await dashRes.json();
 
       if (txJson.success) {
         const txData = Array.isArray(txJson.data) ? txJson.data : txJson.data?.data;
@@ -94,13 +80,29 @@ export default function TransactionsScreen() {
     fetchData();
   }, [selectedDate]);
 
-  const toggleForm = (type: string) => {
+  const toggleForm = (type: string, txToEdit?: any) => {
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-    if (formType === type) {
+    if (formType === type && !txToEdit) {
       setFormType(null);
+      setEditingTxId(null);
     } else {
       setFormType(type);
-      setAmount(''); setDescription(''); setCategoryId(''); setPaymentMethodId(''); setBankId(''); setTypeId(''); setToBankId('');
+      if (txToEdit) {
+        setEditingTxId(txToEdit._id);
+        setAmount(txToEdit.amount?.toString() || '');
+        setDescription(txToEdit.description || '');
+        setTransactionDate(txToEdit.date || new Date().toISOString());
+        setCategoryId(txToEdit.category?._id || txToEdit.category || '');
+        setPaymentMethodId(txToEdit.payment_type?._id || txToEdit.paymentMethod || '');
+        setTypeId(txToEdit.transaction_type?._id || txToEdit.type || '');
+        setBankId(txToEdit.bank?._id || txToEdit.bank || '');
+      } else {
+        setEditingTxId(null);
+        setAmount(''); 
+        setDescription(''); 
+        setTransactionDate(new Date().toISOString());
+        setCategoryId(''); setPaymentMethodId(''); setBankId(''); setTypeId(''); setToBankId('');
+      }
     }
   };
 
@@ -108,20 +110,15 @@ export default function TransactionsScreen() {
     if (!amount) return Alert.alert('Error', 'Please enter an amount');
 
     setIsSubmitting(true);
-    const token = await AsyncStorage.getItem('@ag_token');
-    const headers = {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${token}`,
-    };
-
     try {
       let endpoint = '';
       let body: any = {};
 
       if (formType === 'TRANSACTION') {
-        endpoint = 'https://backend-nodejs-pa.vercel.app/api/transaction/addEditTransaction';
+        endpoint = '/transaction/addEditTransaction';
         body = {
-          date: new Date().toISOString(),
+          _id: editingTxId || "",
+          date: transactionDate,
           amount,
           description,
           category: categoryId,
@@ -132,18 +129,17 @@ export default function TransactionsScreen() {
           transaction_type: typeId
         };
       } else if (formType === 'DEPOSIT') {
-        endpoint = 'https://backend-nodejs-pa.vercel.app/api/transaction/depositCash';
+        endpoint = '/transaction/depositCash';
         body = { _id: "", bankId, amount };
       } else if (formType === 'WITHDRAW') {
-        endpoint = 'https://backend-nodejs-pa.vercel.app/api/transaction/withdrawCash';
+        endpoint = '/transaction/withdrawCash';
         body = { _id: "", bankId, amount };
       } else if (formType === 'TRANSFER') {
-        endpoint = 'https://backend-nodejs-pa.vercel.app/api/transaction/selfTransfer';
+        endpoint = '/transaction/selfTransfer';
         body = { _id: "", amount, fromBankId: bankId, toBankId };
       }
 
-      const res = await fetch(endpoint, { method: 'POST', headers, body: JSON.stringify(body) });
-      const json = await res.json();
+      const json = await api.post(endpoint, body);
 
       if (json.success) {
         Alert.alert('Success', json.message || 'Operation successful');
@@ -171,16 +167,7 @@ export default function TransactionsScreen() {
           onPress: async () => {
             try {
               setIsSubmitting(true);
-              const token = await AsyncStorage.getItem('@ag_token');
-              const response = await fetch('https://backend-nodejs-pa.vercel.app/api/transaction/deleteTransaction', {
-                method: 'POST',
-                headers: {
-                  'Content-Type': 'application/json',
-                  Authorization: `Bearer ${token}`,
-                },
-                body: JSON.stringify({ _id: id }),
-              });
-              const json = await response.json();
+              const json = await api.post('/transaction/deleteTransaction', { _id: id });
               if (json.success) {
                 Alert.alert('Success', 'Transaction deleted');
                 fetchData();
@@ -219,13 +206,14 @@ export default function TransactionsScreen() {
   const handleDownload = async () => {
     try {
       setIsSubmitting(true);
-      const token = await AsyncStorage.getItem('@ag_token');
       const fromDate = startOfMonth(selectedDate).toISOString();
       const toDate = endOfMonth(selectedDate).toISOString();
 
       const filename = `Transactions_${format(selectedDate, 'MMM_yyyy')}.xlsx`;
       const fileUri = FileSystem.cacheDirectory + filename;
 
+      // Special case: we need the raw response or blob
+      const token = await AsyncStorage.getItem('@ag_token');
       const response = await fetch('https://backend-nodejs-pa.vercel.app/api/transaction/exportExcelReport', {
         method: 'POST',
         headers: {
@@ -326,7 +314,8 @@ export default function TransactionsScreen() {
       {formType && (
         <View style={styles.formContainer}>
           <Text style={styles.formTitle}>
-            {formType === 'TRANSACTION' ? 'Add Transaction' :
+            {editingTxId ? 'Edit Transaction' : 
+              formType === 'TRANSACTION' ? 'Add Transaction' :
               formType === 'DEPOSIT' ? 'Deposit Cash' :
                 formType === 'WITHDRAW' ? 'Withdraw Cash' : 'Transfer Money'}
           </Text>
@@ -343,6 +332,18 @@ export default function TransactionsScreen() {
           </View>
 
           {formType === 'TRANSACTION' && (
+            <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>Date (ISO Format)</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="YYYY-MM-DD"
+                value={transactionDate}
+                onChangeText={setTransactionDate}
+              />
+            </View>
+          )}
+
+          {formType === 'TRANSACTION' && (
             <>
               <View style={styles.inputGroup}>
                 <Text style={styles.inputLabel}>Description</Text>
@@ -350,8 +351,8 @@ export default function TransactionsScreen() {
               </View>
               <View style={styles.inputGroup}>
                 <Text style={styles.inputLabel}>Category</Text>
-                <View style={styles.pickerWrap}>
-                  <Picker selectedValue={categoryId} onValueChange={setCategoryId}>
+                <View style={[styles.pickerWrap, editingTxId && { opacity: 0.5 }]}>
+                  <Picker selectedValue={categoryId} onValueChange={setCategoryId} enabled={!editingTxId}>
                     <Picker.Item label="Select Category" value="" />
                     {categories.map((c) => <Picker.Item key={c._id} label={c.name} value={c._id} />)}
                   </Picker>
@@ -359,8 +360,8 @@ export default function TransactionsScreen() {
               </View>
               <View style={styles.inputGroup}>
                 <Text style={styles.inputLabel}>Transaction Type</Text>
-                <View style={styles.pickerWrap}>
-                  <Picker selectedValue={typeId} onValueChange={setTypeId}>
+                <View style={[styles.pickerWrap, editingTxId && { opacity: 0.5 }]}>
+                  <Picker selectedValue={typeId} onValueChange={setTypeId} enabled={!editingTxId}>
                     <Picker.Item label="Select Type" value="" />
                     {transactionTypes.map((t) => <Picker.Item key={t._id} label={t.name} value={t._id} />)}
                   </Picker>
@@ -368,8 +369,8 @@ export default function TransactionsScreen() {
               </View>
               <View style={styles.inputGroup}>
                 <Text style={styles.inputLabel}>Payment Method</Text>
-                <View style={styles.pickerWrap}>
-                  <Picker selectedValue={paymentMethodId} onValueChange={setPaymentMethodId}>
+                <View style={[styles.pickerWrap, editingTxId && { opacity: 0.5 }]}>
+                  <Picker selectedValue={paymentMethodId} onValueChange={setPaymentMethodId} enabled={!editingTxId}>
                     <Picker.Item label="Select Method" value="" />
                     {paymentTypes.map((p) => <Picker.Item key={p._id} label={p.name} value={p._id} />)}
                   </Picker>
@@ -378,8 +379,8 @@ export default function TransactionsScreen() {
               {paymentTypes.find(p => p._id === paymentMethodId)?.name === 'Bank' && (
                 <View style={styles.inputGroup}>
                   <Text style={styles.inputLabel}>Bank</Text>
-                  <View style={styles.pickerWrap}>
-                    <Picker selectedValue={bankId} onValueChange={setBankId}>
+                  <View style={[styles.pickerWrap, editingTxId && { opacity: 0.5 }]}>
+                    <Picker selectedValue={bankId} onValueChange={setBankId} enabled={!editingTxId}>
                       <Picker.Item label="Select Bank" value="" />
                       {banks.map((b) => <Picker.Item key={b._id} label={b.bank_name} value={b._id} />)}
                     </Picker>
@@ -462,8 +463,19 @@ export default function TransactionsScreen() {
                   </Text>
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
                     <Text style={styles.rowDate}>{formattedDate}</Text>
-                    <TouchableOpacity onPress={() => handleDeleteTransaction(item._id)}>
-                      <Ionicons name="trash-outline" size={16} color="#ef4444" />
+                    <TouchableOpacity 
+                      onPress={() => toggleForm('TRANSACTION', item)}
+                      style={styles.listActionBtn}
+                      hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                    >
+                      <Ionicons name="pencil-outline" size={18} color="hsl(240, 3.8%, 46.1%)" />
+                    </TouchableOpacity>
+                    <TouchableOpacity 
+                      onPress={() => handleDeleteTransaction(item._id)}
+                      style={styles.listActionBtn}
+                      hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                    >
+                      <Ionicons name="trash-outline" size={18} color="#ef4444" />
                     </TouchableOpacity>
                   </View>
                 </View>
@@ -679,6 +691,13 @@ const styles = StyleSheet.create({
   rowCat: { fontSize: 12, color: 'hsl(240, 3.8%, 46.1%)' },
   rowAmount: { fontSize: 15, fontWeight: '700', marginBottom: 2 },
   rowDate: { fontSize: 11, color: 'hsl(240, 3.8%, 46.1%)' },
+  listActionBtn: {
+    padding: 8,
+    borderRadius: 8,
+    backgroundColor: 'hsl(240, 4.8%, 95.9%)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
 
   loadingOverlay: {
     ...StyleSheet.absoluteFillObject,
